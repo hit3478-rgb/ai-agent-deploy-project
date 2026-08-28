@@ -18,7 +18,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
-from rag_pipeline import load_documents, chunk_documents, SimpleVectorIndex
+from rag_pipeline import load_documents, chunk_documents, AdvancedRAGIndex
+from agent_workflow import build_workflow, run_agent
 
 app = FastAPI(
     title="쇼핑몰 상품 상담 AI Agent API",
@@ -40,7 +41,8 @@ app.add_middleware(
 # ---------- 서버 시작 시 RAG 인덱스 1회 구축 ----------
 raw = load_documents("product_data/rag_product_data.txt")
 CHUNKS = chunk_documents(raw)
-INDEX = SimpleVectorIndex(CHUNKS)
+INDEX = AdvancedRAGIndex(CHUNKS)
+WORKFLOW = build_workflow(INDEX)
 
 # ---------- 세션 State (인메모리 데모용 — 서버 재시작하면 초기화됨) ----------
 SESSIONS: dict[str, list[dict]] = {}
@@ -58,15 +60,11 @@ def append_turn(session_id: str, role: str, text: str):
     )
 
 
-def build_answer(query: str, top_k: int = 2) -> tuple[str, list[str]]:
-    """검색된 chunk를 근거로 간단한 답변 조합 (LLM 연동 전 임시 로직)"""
-    results = INDEX.search(query, top_k=top_k)
-    sources = [r["id"] for r in results]
-    if not results or results[0]["score"] == 0:
-        return "관련된 상품/정책 정보를 찾지 못했습니다. 다른 표현으로 질문해주세요.", sources
-    best = results[0]["text"]
-    answer = f"[{best.splitlines()[0]}] 관련 정보를 찾았습니다.\n\n{best}"
-    return answer, sources
+def build_answer(query: str) -> tuple[str, list[str]]:
+    """조건부 Edge Agent Workflow(LangGraph)를 통해 답변 생성.
+    질문 종류(잡담/상품문의)와 검색 신뢰도에 따라 내부적으로 다른 경로를 탄다."""
+    result = run_agent(WORKFLOW, query)
+    return result["answer"], result["sources"]
 
 
 # ---------- 요청/응답 스키마 ----------
@@ -151,7 +149,8 @@ async def chat_stream(
     async def event_generator():
         yield {"event": "session", "data": session_id}
         for ch in answer:
-            yield {"event": "token", "data": ch}
+            payload = "\\n" if ch == "\n" else ch
+            yield {"event": "token", "data": payload}
             await asyncio.sleep(0.01)
         yield {"event": "done", "data": ",".join(sources)}
 
