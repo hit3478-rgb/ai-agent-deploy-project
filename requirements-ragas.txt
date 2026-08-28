@@ -1,0 +1,6 @@
+ragas
+langchain-community==0.3.27
+langchain-anthropic
+pandas
+scikit-learn
+langgraph

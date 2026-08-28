@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>쇼핑몰 상품 상담 AI Agent - SSE 테스트</title>
+<style>
+  body { font-family: "맑은 고딕", sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+  h2 { color: #C00000; }
+  #chatBox { border: 1px solid #ccc; border-radius: 8px; padding: 16px; min-height: 240px;
+             margin-bottom: 12px; background: #fafafa; white-space: pre-wrap; line-height: 1.5; }
+  .row { display: flex; gap: 8px; }
+  input { flex: 1; padding: 10px; font-size: 15px; border: 1px solid #ccc; border-radius: 6px; }
+  button { padding: 10px 18px; font-size: 15px; border: none; border-radius: 6px;
+           background: #C00000; color: white; cursor: pointer; }
+  button:disabled { background: #ccc; }
+  .meta { font-size: 12px; color: #888; margin-top: 6px; }
+  .msg-user { color: #0b5cab; font-weight: bold; margin-top: 10px; }
+  .msg-agent { color: #222; }
+</style>
+</head>
+<body>
+  <h2>상품 상담 AI Agent (SSE 스트리밍 테스트)</h2>
+  <div id="chatBox">서버(<code>/chat/stream</code>)에 질문을 보내면 이 영역에 답변이 실시간으로 스트리밍됩니다.</div>
+  <div class="row">
+    <input id="queryInput" type="text" placeholder="예) 패딩 재고 있나요?" />
+    <button id="sendBtn" onclick="sendQuery()">전송</button>
+  </div>
+  <div class="meta" id="sessionMeta">session_id: (아직 없음)</div>
+
+<script>
+  const API_BASE = "http://localhost:8010"; // 실제 서버 주소로 변경
+  let sessionId = null;
+
+  function sendQuery() {
+    const input = document.getElementById("queryInput");
+    const query = input.value.trim();
+    if (!query) return;
+
+    const chatBox = document.getElementById("chatBox");
+    const btn = document.getElementById("sendBtn");
+    btn.disabled = true;
+
+    chatBox.innerHTML += `<div class="msg-user">나: ${query}</div>`;
+    const answerEl = document.createElement("div");
+    answerEl.className = "msg-agent";
+    answerEl.textContent = "Agent: ";
+    chatBox.appendChild(answerEl);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    const params = new URLSearchParams({ query });
+    if (sessionId) params.append("session_id", sessionId);
+
+    const es = new EventSource(`${API_BASE}/chat/stream?${params.toString()}`);
+
+    es.addEventListener("session", (e) => {
+      sessionId = e.data;
+      document.getElementById("sessionMeta").textContent = "session_id: " + sessionId;
+    });
+
+    es.addEventListener("token", (e) => {
+      answerEl.textContent += e.data;
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    es.addEventListener("done", (e) => {
+      answerEl.textContent += `\n(참조 문서: ${e.data})`;
+      es.close();
+      btn.disabled = false;
+    });
+
+    es.onerror = () => {
+      answerEl.textContent += " [스트리밍 오류]";
+      es.close();
+      btn.disabled = false;
+    };
+
+    input.value = "";
+  }
+
+  document.getElementById("queryInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendQuery();
+  });
+</script>
+</body>
+</html>

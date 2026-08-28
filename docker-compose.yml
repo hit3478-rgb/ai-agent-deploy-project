@@ -1,0 +1,22 @@
+services:
+  backend:
+    build: .
+    container_name: product_agent_backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8010
+    ports:
+      - "8010:8010"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    restart: unless-stopped
+
+  frontend:
+    build: .
+    container_name: product_agent_frontend
+    command: streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE=http://backend:8010
+    depends_on:
+      - backend
+    restart: unless-stopped

@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+sse-starlette
+scikit-learn
+streamlit
+requests
+langgraph
+anthropic

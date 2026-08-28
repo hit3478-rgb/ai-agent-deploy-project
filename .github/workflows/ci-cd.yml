@@ -1,0 +1,63 @@
+name: CI/CD - product_agent
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---------- CI: 빌드/기본 검증 (GitHub 클라우드 러너, 서버 접근 불필요) ----------
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt
+
+      - name: 모듈 임포트 스모크 테스트
+        run: |
+          python -c "import rag_pipeline; import agent_workflow; import llm_client; import main; print('OK: 모든 모듈 임포트 성공')"
+
+      - name: RAG 파이프라인 동작 테스트
+        run: |
+          cd .
+          python -c "
+          from rag_pipeline import load_documents, chunk_documents, AdvancedRAGIndex
+          from agent_workflow import build_workflow, run_agent
+          raw = load_documents('product_data/rag_product_data.txt')
+          chunks = chunk_documents(raw)
+          index = AdvancedRAGIndex(chunks)
+          wf = build_workflow(index)
+          r = run_agent(wf, '패딩 재고 있나요?')
+          assert r['answer'], '답변이 비어있음'
+          print('OK:', r['answer'][:40])
+          "
+
+  # ---------- CD: 실제 서버 배포 (서버에 등록된 Self-hosted 러너에서 실행 — VPN 안이라 여기서만 가능) ----------
+  deploy:
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: self-hosted
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Docker Compose로 재빌드 및 재기동
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          docker compose down
+          docker compose up -d --build
+
+      - name: 배포 후 헬스체크
+        run: |
+          sleep 5
+          curl -f http://localhost:8010/ || (echo "백엔드 헬스체크 실패" && exit 1)
