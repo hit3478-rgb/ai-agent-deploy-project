@@ -41,23 +41,20 @@ jobs:
           print('OK:', r['answer'][:40])
           "
 
-  # ---------- CD: 실제 서버 배포 (서버에 등록된 Self-hosted 러너에서 실행 — VPN 안이라 여기서만 가능) ----------
+  # ---------- CD: 실제 서버 배포 ----------
+  # 러너는 Windows(로컬 PC, VPN 연결됨) — 직접 배포하지 않고
+  # SSH로 H200 서버에 접속해서 그 안에서 git pull + docker compose를 실행시킨다.
   deploy:
     needs: ci
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: self-hosted
     steps:
-      - name: 체크아웃
-        uses: actions/checkout@v4
-
-      - name: Docker Compose로 재빌드 및 재기동
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: SSH로 H200 서버에 배포
+        shell: pwsh
         run: |
-          docker compose down
-          docker compose up -d --build
+          ssh Vpn_H200_Server "cd ~/llm/product_agent && git pull origin main && export ANTHROPIC_API_KEY='${{ secrets.ANTHROPIC_API_KEY }}' && docker compose down && docker compose up -d --build"
 
-      - name: 배포 후 헬스체크
+      - name: 배포 후 헬스체크 (H200 안에서 curl)
+        shell: pwsh
         run: |
-          sleep 5
-          curl -f http://localhost:8010/ || (echo "백엔드 헬스체크 실패" && exit 1)
+          ssh Vpn_H200_Server "sleep 5 && curl -f http://localhost:8022/"
