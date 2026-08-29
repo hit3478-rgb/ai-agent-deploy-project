@@ -98,7 +98,7 @@ def compute_proxy_metrics(rows):
 def run_proxy_mode():
     import csv
 
-    print("[안내] ANTHROPIC_API_KEY가 없어 경량 대체 지표(TF-IDF 기반)로 평가합니다.")
+    print("[안내] API_KEY가 없어 경량 대체 지표(TF-IDF 기반)로 평가합니다.")
     print("       진짜 RAGAS가 필요하면 키 설정 후 다시 실행하세요.\n")
 
     print("평가 데이터 수집 중 (Agent Workflow 실행)...")
