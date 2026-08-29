@@ -50,11 +50,11 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: SSH로 H200 서버에 배포
-        shell: pwsh
+        shell: cmd
         run: |
           ssh Vpn_H200_Server "cd ~/llm/product_agent && git pull origin main && export ANTHROPIC_API_KEY='${{ secrets.ANTHROPIC_API_KEY }}' && docker compose down && docker compose up -d --build"
 
       - name: 배포 후 헬스체크 (H200 안에서 curl)
-        shell: pwsh
+        shell: cmd
         run: |
           ssh Vpn_H200_Server "sleep 5 && curl -f http://localhost:8022/"
