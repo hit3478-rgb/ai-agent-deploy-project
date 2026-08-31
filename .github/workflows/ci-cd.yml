@@ -57,4 +57,4 @@ jobs:
       - name: 배포 후 헬스체크 (H200 안에서 curl)
         shell: cmd
         run: |
-          ssh Vpn_H200_Server "sleep 5 && curl -f http://localhost:8022/"
+          ssh Vpn_H200_Server "sleep 5 && curl -f http://localhost:8012/"

@@ -93,6 +93,36 @@ def reciprocal_rank_fusion(ranked_lists: list[list[str]], k: int = 60) -> dict:
     return scores
 
 
+# ---------- Advanced RAG 기법 4: Context Compression ----------
+def compress_context(query: str, doc_text: str, max_lines: int = 4) -> str:
+    """
+    검색된 문서 전체를 그대로 LLM에 넘기지 않고, 질문과 관련된 줄만 추려서 압축한다.
+    문서 헤더(문서 ID, 상품명 등 1~2줄)는 항상 유지하고, 본문은 질문과의 단어 겹침이
+    높은 줄부터 max_lines개만 남긴다. LLM에 들어가는 컨텍스트 길이를 줄여
+    토큰 비용을 아끼고, 무관한 정보가 답변에 섞이는 걸 줄인다.
+    """
+    lines = [l for l in doc_text.splitlines() if l.strip()]
+    if len(lines) <= max_lines + 2:
+        return doc_text  # 이미 짧으면 압축할 필요 없음
+
+    header = lines[:2]  # [문서 ID: ...], 상품명/카테고리 등 첫 줄들은 항상 유지
+    body = lines[2:]
+
+    query_tokens = set(query.replace("?", "").split())
+    scored_lines = []
+    for line in body:
+        line_tokens = set(line.replace(":", " ").split())
+        overlap = len(query_tokens & line_tokens)
+        scored_lines.append((overlap, line))
+
+    # 겹침 높은 순 정렬 후 상위 max_lines개, 원래 순서 유지해서 재배열
+    top_lines = sorted(scored_lines, key=lambda x: x[0], reverse=True)[:max_lines]
+    top_line_set = {l for _, l in top_lines}
+    kept_body = [l for l in body if l in top_line_set]
+
+    return "\n".join(header + kept_body)
+
+
 # ---------- Advanced RAG 인덱스 (Multi-Query + Reranking) ----------
 class AdvancedRAGIndex:
     def __init__(self, chunks: list[dict]):

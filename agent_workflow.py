@@ -16,6 +16,7 @@
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
 from llm_client import generate_answer
+from rag_pipeline import compress_context
 
 SMALLTALK_KEYWORDS = ["안녕", "반가워", "고마워", "감사", "잘가", "누구야", "너 뭐야"]
 SEARCH_CONFIDENCE_THRESHOLD = 0.12  # relevance(원본 word/char 유사도 최댓값) 기준 임계값
@@ -50,14 +51,16 @@ def build_workflow(rag_index):
         return state
 
     def answer_from_search(state: AgentState) -> AgentState:
-        contexts = [r["text"] for r in state["search_results"]]
-        llm_answer = generate_answer(state["query"], contexts)
+        query = state["query"]
+        # Advanced RAG 기법 4: Context Compression — 문서 원문을 통째로 넘기지 않고
+        # 질문과 관련된 줄만 추려서 LLM에 전달 (토큰 절약 + 무관한 정보 혼입 방지)
+        contexts = [compress_context(query, r["text"]) for r in state["search_results"]]
+        llm_answer = generate_answer(query, contexts)
         if llm_answer:
             state["answer"] = llm_answer
         else:
-            # LLM 미연동/실패 시 폴백: 검색된 문서 원문을 그대로 노출
-            best = state["search_results"][0]
-            state["answer"] = f"[{best['text'].splitlines()[0]}] 관련 정보를 찾았습니다.\n\n{best['text']}"
+            # LLM 미연동/실패 시 폴백: 압축된 컨텍스트를 그대로 노출
+            state["answer"] = f"[{contexts[0].splitlines()[0]}] 관련 정보를 찾았습니다.\n\n{contexts[0]}"
         state["sources"] = [r["id"] for r in state["search_results"]]
         return state
 

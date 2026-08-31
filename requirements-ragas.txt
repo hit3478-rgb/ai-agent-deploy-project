@@ -1,6 +1,7 @@
 ragas
 langchain-community==0.3.27
 langchain-anthropic
+langchain-ollama
 pandas
 scikit-learn
 langgraph

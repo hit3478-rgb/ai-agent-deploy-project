@@ -9,11 +9,10 @@ import os
 import requests
 import streamlit as st
 
-API_BASE = os.environ.get("API_BASE", "http://localhost:8010")
+API_BASE = os.environ.get("API_BASE", "http://localhost:8012")
 
 st.set_page_config(page_title="상품 상담 AI Agent", page_icon="🛍️")
 st.title("🛍️ 쇼핑몰 상품 상담 AI Agent")
-st.caption(f"백엔드: {API_BASE}")
 
 if "session_id" not in st.session_state:
     st.session_state.session_id = None

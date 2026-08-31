@@ -6,3 +6,4 @@ streamlit
 requests
 langgraph
 anthropic
+chromadb
